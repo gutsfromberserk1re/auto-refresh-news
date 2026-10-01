@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Newsly</title>
+    <title>News Feed Aggregator</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -12,360 +12,401 @@
             theme: {
                 extend: {
                     colors: {
-                        darkbg: '#0f172a',
-                        cardbg: '#1e293b',
-                        bordercolor: '#334155'
+                        wireBg: '#181c24',
+                        wireCard: '#222834',
+                        wireBorder: '#323a4a',
+                        wireText: '#d8deee',
+                        wireMuted: '#64748b',
+                        wireAd: '#1c222e'
+                    },
+                    fontFamily: {
+                        mono: ['Courier New', 'Consolas', 'monospace'],
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
                     }
                 }
             }
         }
-    >
     </script>
     <style>
-        /* Hide scrollbar for clean vertical feed UI */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        /* Smooth transition for auto-hiding floating header */
+        #floatingHeader {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .header-hidden {
+            transform: translateY(-120%);
+        }
+        .header-visible {
+            transform: translateY(0);
+        }
+
+        /* Custom scrollbar matching wireframe theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #181c24;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #323a4a;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
         }
     </style>
 </head>
-<body class="bg-darkbg text-slate-100 min-h-screen flex flex-col selection:bg-rose-500 selection:text-white">
+<body class="bg-wireBg text-wireText font-sans min-h-screen pt-20 pb-12 px-3 md:px-8 selection:bg-slate-700 selection:text-white">
 
-    <!-- Top Navigation / Header -->
-    <header class="sticky top-0 z-50 bg-darkbg/90 backdrop-blur-md border-b border-bordercolor px-4 py-3">
-        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4">
-            <!-- App Logo -->
-            <div class="flex items-center gap-2 cursor-pointer" onclick="resetFeed('general')">
-                <div class="bg-gradient-to-tr from-rose-500 to-indigo-500 text-white font-black px-3 py-1.5 rounded-xl text-lg tracking-wider shadow-lg shadow-rose-500/20">
-                    NT
-                </div>
-                <span class="font-bold text-xl tracking-tight hidden sm:inline">NewsTok</span>
+    <!-- FLOATING AUTO-HIDING SEARCH HEADER -->
+    <header id="floatingHeader" class="fixed top-0 left-0 right-0 z-40 p-3 md:p-4 header-visible bg-wireBg/90 backdrop-blur-md border-b border-wireBorder/60 shadow-2xl">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            
+            <!-- Logo / Brand Title -->
+            <div onclick="resetFeed()" class="cursor-pointer font-mono font-bold text-lg md:text-xl text-white flex items-center gap-2">
+                <span class="bg-slate-800 text-slate-100 border border-wireBorder px-2.5 py-1 rounded-md">NT</span>
+                <span class="hidden sm:inline tracking-tight">NewsTok</span>
             </div>
 
-            <!-- Search Bar -->
-            <div class="flex-1 max-w-md relative">
+            <!-- Search Bar (Floating & Auto-Hiding) -->
+            <div class="flex-1 max-w-xl relative">
                 <input 
                     type="text" 
-                    id="searchInput" 
-                    placeholder="Search topics, news, trends..." 
-                    class="w-full bg-cardbg border border-bordercolor rounded-full px-4 py-2 pl-10 text-sm focus:outline-none focus:border-rose-500 transition-colors"
-                    onkeypress="handleSearch(event)"
+                    id="searchInput"
+                    placeholder="Search news, topics, keywords..." 
+                    class="w-full bg-wireCard border border-wireBorder rounded-xl px-4 py-2.5 pl-10 text-sm font-mono text-white placeholder-wireMuted focus:outline-none focus:border-slate-400 shadow-inner transition-colors"
+                    onkeypress="handleSearchKeypress(event)"
                 >
-                <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
+                <button onclick="executeSearch()" class="absolute left-3 top-3 text-wireMuted hover:text-white transition-colors">
+                    <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </button>
             </div>
 
-            <!-- Status Indicator -->
-            <div class="text-xs text-slate-400 flex items-center gap-1.5 bg-cardbg px-3 py-1.5 rounded-full border border-bordercolor">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span id="activeApiLabel">API Rotator Active</span>
-            </div>
-        </div>
-
-        <!-- Category Horizontal Scroll Bar -->
-        <div class="max-w-6xl mx-auto mt-3 flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-            <button onclick="switchCategory('general')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-rose-500 text-white whitespace-nowrap transition-all shadow-sm">🔥 General</button>
-            <button onclick="switchCategory('technology')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor">💻 Tech</button>
-            <button onclick="switchCategory('business')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor">📈 Business</button>
-            <button onclick="switchCategory('science')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor">🚀 Science</button>
-            <button onclick="switchCategory('entertainment')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor">🎬 Entertainment</button>
-            <button onclick="switchCategory('sports')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor">⚽ Sports</button>
-            <button onclick="switchCategory('health')" class="cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor">🧬 Health</button>
+            <!-- Clear / Refresh Button -->
+            <button onclick="resetFeed()" class="hidden sm:flex text-xs font-mono text-slate-300 hover:text-white bg-wireCard hover:bg-wireBorder px-3 py-2 rounded-lg border border-wireBorder transition-all items-center gap-1.5">
+                <span>🔄</span> Refresh
+            </button>
         </div>
     </header>
 
-    <!-- Main Content Layout (Desktop Grid / Mobile Stack) -->
-    <main class="flex-1 max-w-6xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Left / Center: Infinite Scroll News Feed (Takes up 2 columns on desktop) -->
-        <section class="lg:col-span-2 flex flex-col gap-6" id="feedContainer">
-            <!-- Dynamic Feed items injected here -->
+    <!-- MAIN APPLICATION GRID -->
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT COLUMN: Main News Feed Article Stream -->
+        <section class="lg:col-span-8 flex flex-col gap-6" id="mainNewsFeed">
+            <!-- News Article Cards injected dynamically -->
         </section>
 
-        <!-- Right Sidebar: Desktop Trending Topics & Native Ad Widgets -->
-        <aside class="hidden lg:flex flex-col gap-6 sticky top-24 h-fit">
-            <!-- Trending Box -->
-            <div class="bg-cardbg border border-bordercolor rounded-2xl p-4 shadow-xl">
-                <h3 class="font-bold text-sm text-slate-200 mb-3 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                    Trending Topics
+        <!-- RIGHT COLUMN: Trending Topics + AD Banner -->
+        <aside class="lg:col-span-4 flex flex-col gap-6 sticky top-24">
+            
+            <!-- TOP RIGHT: Trending Topic Section -->
+            <div class="bg-wireCard border border-wireBorder rounded-2xl p-5 shadow-2xl">
+                <h3 class="font-mono font-bold text-slate-100 text-lg mb-4 border-b border-wireBorder pb-3 flex items-center justify-between">
+                    <span>Trending Topic</span>
+                    <span class="text-xs font-normal text-wireMuted">Live Feed</span>
                 </h3>
-                <div class="flex flex-col gap-2.5" id="trendingSidebar">
-                    <div onclick="searchKeyword('AI Breakthrough')" class="p-2.5 rounded-xl bg-darkbg/50 hover:bg-darkbg border border-bordercolor/50 cursor-pointer transition-colors">
-                        <p class="text-xs font-medium text-slate-200">#AI Breakthrough</p>
-                        <span class="text-[10px] text-slate-400">14.2k readers</span>
-                    </div>
-                    <div onclick="searchKeyword('Climate Action')" class="p-2.5 rounded-xl bg-darkbg/50 hover:bg-darkbg border border-bordercolor/50 cursor-pointer transition-colors">
-                        <p class="text-xs font-medium text-slate-200">#Climate Action</p>
-                        <span class="text-[10px] text-slate-400">9.8k readers</span>
-                    </div>
-                    <div onclick="searchKeyword('Space Mission')" class="p-2.5 rounded-xl bg-darkbg/50 hover:bg-darkbg border border-bordercolor/50 cursor-pointer transition-colors">
-                        <p class="text-xs font-medium text-slate-200">#Space Mission</p>
-                        <span class="text-[10px] text-slate-400">8.1k readers</span>
-                    </div>
+                <div class="flex flex-col gap-3 font-mono text-sm" id="trendingList">
+                    <button onclick="clickTrending('AI Breakthrough')" class="text-left p-3.5 rounded-xl bg-wireBg hover:bg-slate-800 border border-wireBorder/60 text-wireText hover:text-white transition-all flex items-center gap-3 group">
+                        <span class="text-base group-hover:scale-110 transition-transform">🌌</span>
+                        <span class="font-semibold text-slate-200 group-hover:text-white">Trending: AI Breakthrough</span>
+                    </button>
+                    <button onclick="clickTrending('Climate Action')" class="text-left p-3.5 rounded-xl bg-wireBg hover:bg-slate-800 border border-wireBorder/60 text-wireText hover:text-white transition-all flex items-center gap-3 group">
+                        <span class="text-base group-hover:scale-110 transition-transform">🌍</span>
+                        <span class="font-semibold text-slate-200 group-hover:text-white">Trending: Climate Action</span>
+                    </button>
+                    <button onclick="clickTrending('New Space Mission')" class="text-left p-3.5 rounded-xl bg-wireBg hover:bg-slate-800 border border-wireBorder/60 text-wireText hover:text-white transition-all flex items-center gap-3 group">
+                        <span class="text-base group-hover:scale-110 transition-transform">🚀</span>
+                        <span class="font-semibold text-slate-200 group-hover:text-white">Trending: New Space Mission</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- Native Sidebar Ad -->
-            <div class="bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden">
-                <span class="absolute top-3 right-3 text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-mono uppercase">Sponsored</span>
-                <h4 class="font-bold text-sm text-white mb-1">Build Your Next App</h4>
-                <p class="text-xs text-slate-300 mb-4">Deploy full-stack apps with absolute ease. Private repos, instant scale.</p>
-                <a href="https://vercel.com" target="_blank" class="inline-block bg-white text-slate-900 text-xs font-semibold px-4 py-2 rounded-xl hover:bg-slate-200 transition-colors">Learn More</a>
+            <!-- BOTTOM RIGHT: Permanent AD Block -->
+            <div class="bg-wireAd border border-wireBorder rounded-2xl p-8 min-h-[220px] flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group hover:border-slate-500 transition-colors">
+                <div class="text-6xl font-mono font-black text-wireMuted/40 group-hover:text-wireMuted/70 transition-colors tracking-widest">AD</div>
+                <span class="text-xs font-mono text-wireMuted uppercase tracking-widest mt-2">Sponsored Advertisement</span>
             </div>
+
         </aside>
+
     </main>
 
+    <!-- FULL ARTICLE READER OVERLAY (Renders when user clicks 'read more' or article card) -->
+    <div id="articleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md overflow-y-auto p-4 md:p-8 flex justify-center items-start">
+        <div class="bg-wireCard border border-wireBorder rounded-2xl max-w-4xl w-full my-6 p-6 md:p-10 shadow-2xl relative font-mono text-slate-200 flex flex-col gap-6">
+            
+            <!-- Modal Header / Controls -->
+            <div class="flex items-center justify-between border-b border-wireBorder pb-4">
+                <button onclick="closeArticleModal()" class="flex items-center gap-2 text-xs md:text-sm text-wireMuted hover:text-white bg-wireBg px-3 py-1.5 rounded-lg border border-wireBorder transition-colors">
+                    <span>←</span> Back to Feed
+                </button>
+                <a id="modalExternalLink" href="#" target="_blank" class="text-xs md:text-sm text-slate-300 hover:text-white underline underline-offset-4">
+                    Open Original Source ↗
+                </a>
+            </div>
+
+            <!-- Article Hero Image -->
+            <div id="modalImageContainer" class="w-full h-64 md:h-96 bg-wireBg border border-wireBorder rounded-xl overflow-hidden hidden">
+                <img id="modalImage" src="" alt="Article hero" class="w-full h-full object-cover">
+            </div>
+
+            <!-- Article Title -->
+            <h1 id="modalTitle" class="text-2xl md:text-4xl font-bold text-white leading-tight"></h1>
+
+            <!-- Article Content Body -->
+            <div id="modalBody" class="text-sm md:text-base text-wireText leading-relaxed whitespace-pre-line border-t border-wireBorder pt-4"></div>
+
+            <!-- Article Reader Footer -->
+            <div class="border-t border-wireBorder pt-6 flex justify-between items-center text-xs text-wireMuted">
+                <span>NewsTok Reader Engine</span>
+                <button onclick="closeArticleModal()" class="bg-slate-100 text-slate-900 font-bold px-5 py-2 rounded-xl hover:bg-slate-300 transition-colors">
+                    Close Article
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Loading Spinner -->
-    <div id="loader" class="py-8 flex justify-center items-center">
-        <div class="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin"></div>
+    <div id="loadingSpinner" class="py-10 flex justify-center items-center">
+        <div class="w-8 h-8 border-3 border-wireMuted border-t-white rounded-full animate-spin"></div>
     </div>
 
     <script>
-        // =========================================================================
-        // MULTI-ACCOUNT & MULTI-API ROTATION ENGINE CONFIGURATION
-        // =========================================================================
-        
-        // 1. Primary Accounts Pool (e.g., your 15 GNews API Accounts)
+        // Multi-Account Keys Array (Fill with your 15 accounts)
         const gnewsKeys = [
-            "c12f5f05120277c8472ceb2a50af4b12",
+            "YOUR_GNEWS_KEY_1",
             "YOUR_GNEWS_KEY_2",
             "YOUR_GNEWS_KEY_3"
-            // ... Add up to your 15 keys here safely
         ];
 
-        // 2. Secondary / Backup APIs Pool (Flexible for adding more minimum 1 alternative)
-        const backupApiKeys = [
-            // Example alternative API structure or backup key
-            // { url: "https://gnews.io/api/v4/top-headlines", key: "BACKUP_KEY_1" }
+        // Backup API Configuration
+        const backupApis = [
+            {
+                name: "RSS Tech Feed Bridge",
+                fetcher: async () => {
+                    const res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https://techcrunch.com/feed/");
+                    const data = await res.json();
+                    return data.items.map(item => ({
+                        title: item.title,
+                        description: item.description.replace(/<[^>]*>?/gm, ''),
+                        content: item.content || item.description.replace(/<[^>]*>?/gm, ''),
+                        url: item.link,
+                        image: item.thumbnail || item.enclosure?.link || null
+                    }));
+                }
+            }
         ];
 
         let activeKeyIndex = 0;
-        let currentCategory = 'general';
-        let currentQuery = '';
-        let pageToken = 1;
-        let isLoading = false;
-        let hasMore = true;
-        let globalItemCounter = 0; // Tracks items to trigger native ad every 5 items
+        let currentSearchQuery = '';
+        let isFetching = false;
+        let totalItemsRendered = 0;
+        let articlesStore = [];
 
-        // Native Ad Mock Inventory
-        const nativeAds = [
-            { title: "Supercharge Your Workflow", desc: "Automate your daily news curation with cutting-edge private tools built for scale.", cta: "Try Free", link: "#" },
-            { title: "Next-Gen Cloud Infrastructure", desc: "Experience zero latency, high-speed private hosting built for modern creators.", cta: "Explore", link: "#" },
-            { title: "Secure Your Digital Footprint", desc: "Protect your source code and private repositories from unwanted data scraping.", cta: "Get Protected", link: "#" }
-        ];
+        // Auto-Hide Header State
+        let lastScrollTop = 0;
+        const floatingHeader = document.getElementById('floatingHeader');
 
-        // Initialize App on Load
         window.addEventListener('DOMContentLoaded', () => {
-            loadNews();
-            
-            // Setup Infinite Scroll Listener
+            loadArticles();
+
+            // Auto-hiding header scroll detection
             window.addEventListener('scroll', () => {
-                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500 && !isLoading && hasMore) {
-                    loadNews();
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > lastScrollTop && scrollTop > 80) {
+                    floatingHeader.classList.remove('header-visible');
+                    floatingHeader.classList.add('header-hidden');
+                } else if (scrollTop < lastScrollTop) {
+                    floatingHeader.classList.remove('header-hidden');
+                    floatingHeader.classList.add('header-visible');
+                }
+                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+
+                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 450 && !isFetching) {
+                    loadArticles();
                 }
             });
         });
 
-        // Fetch News with Automatic Multi-Key Rotation
-        async function fetchWithKeyRotation(urlBuilder) {
-            // Check if primary keys exist, otherwise fallback to demo mock mode so UI renders cleanly out of the box
-            if (!gnewsKeys.length || gnewsKeys[0].includes("YOUR_GNEWS_KEY")) {
-                console.warn("No valid GNews API keys found. Falling back to dynamic mock data stream for layout testing.");
-                return getMockArticles();
+        async function fetchNewsData(query = '') {
+            const hasValidGNewsKeys = gnewsKeys.length > 0 && !gnewsKeys[0].includes("YOUR_GNEWS_KEY");
+
+            if (hasValidGNewsKeys) {
+                const currentKey = gnewsKeys[activeKeyIndex];
+                const endpoint = query 
+                    ? `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&apikey=${currentKey}`
+                    : `https://gnews.io/api/v4/top-headlines?category=general&lang=en&max=10&apikey=${currentKey}`;
+
+                try {
+                    const response = await fetch(endpoint);
+
+                    if (response.status === 429 || response.status === 401) {
+                        activeKeyIndex = (activeKeyIndex + 1) % gnewsKeys.length;
+                        return fetchNewsData(query);
+                    }
+
+                    if (!response.ok) throw new Error("GNews fetch failed");
+
+                    const data = await response.json();
+                    return data.articles || [];
+                } catch (err) {}
             }
 
-            const currentKey = gnewsKeys[activeKeyIndex];
-            const url = urlBuilder(currentKey);
-
-            try {
-                const response = await fetch(url);
-                
-                // Handle Rate Limit (HTTP 429) or Unauthorized (401) by cycling to the next key
-                if (response.status === 429 || response.status === 401) {
-                    console.warn(`Key index ${activeKeyIndex} failed (Status ${response.status}). Rotating key...`);
-                    activeKeyIndex = (activeKeyIndex + 1) % gnewsKeys.length;
-                    document.getElementById('activeApiLabel').innerText = `Rotated to Key #${activeKeyIndex + 1}`;
-                    return fetchWithKeyRotation(urlBuilder); // Retry immediately with next key
-                }
-
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-                const data = await response.json();
-                return data.articles || [];
-            } catch (error) {
-                console.error("API Fetch Error:", error);
-                return getMockArticles(); // Fallback gracefully
+            if (backupApis.length > 0) {
+                try {
+                    return await backupApis[0].fetcher();
+                } catch (backupErr) {}
             }
+
+            return getWireframeMockArticles();
         }
 
-        // Core Loader Function
-        async function loadNews() {
-            if (isLoading) return;
-            isLoading = true;
-            document.getElementById('loader').style.display = 'flex';
+        async function loadArticles() {
+            if (isFetching) return;
+            isFetching = true;
+            document.getElementById('loadingSpinner').style.display = 'flex';
 
-            let urlBuilder;
-            if (currentQuery) {
-                urlBuilder = (key) => `https://gnews.io/api/v4/search?q=${encodeURIComponent(currentQuery)}&lang=en&max=10&apikey=${key}`;
-            } else {
-                urlBuilder = (key) => `https://gnews.io/api/v4/top-headlines?category=${currentCategory}&lang=en&country=us&max=10&apikey=${key}`;
-            }
+            const articles = await fetchNewsData(currentSearchQuery);
+            articlesStore = [...articlesStore, ...articles];
+            renderArticles(articles);
 
-            const articles = await fetchWithKeyRotation(urlBuilder);
-            renderFeed(articles);
-
-            isLoading = false;
-            document.getElementById('loader').style.display = 'none';
+            isFetching = false;
+            document.getElementById('loadingSpinner').style.display = 'none';
         }
 
-        // Render Feed Items + Native Ads Integration (1 in every 5 items)
-        function renderFeed(articles) {
-            const feedContainer = document.getElementById('feedContainer');
-            
-            if (articles.length === 0 && globalItemCounter === 0) {
-                feedContainer.innerHTML = `<div class="text-center py-12 text-slate-400">No articles found. Try another search or category.</div>`;
+        function renderArticles(articles) {
+            const feedContainer = document.getElementById('mainNewsFeed');
+
+            if (articles.length === 0 && totalItemsRendered === 0) {
+                feedContainer.innerHTML = `
+                    <div class="p-10 text-center text-wireMuted font-mono bg-wireCard border border-wireBorder rounded-2xl">
+                        No articles found. Try searching for another topic.
+                    </div>`;
                 return;
             }
 
             articles.forEach((article) => {
-                globalItemCounter++;
+                const globalIndex = articlesStore.length - articles.length + articles.indexOf(article);
+                totalItemsRendered++;
 
-                // Inject Native Ad Card every 5 items
-                if (globalItemCounter % 5 === 0) {
-                    const ad = nativeAds[Math.floor(Math.random() * nativeAds.length)];
-                    const adCard = document.createElement('div');
-                    adCard.className = 'bg-cardbg border border-rose-500/30 rounded-2xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between';
-                    adCard.innerHTML = `
-                        <div class="absolute top-3 right-3 text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded font-mono uppercase tracking-wider">Sponsored Ad</div>
-                        <div>
-                            <span class="text-xs text-rose-400 font-semibold uppercase tracking-wider">Native Advertisement</span>
-                            <h2 class="text-lg font-bold text-white mt-1 mb-2">${ad.title}</h2>
-                            <p class="text-slate-300 text-sm mb-4 leading-relaxed">${ad.desc}</p>
-                        </div>
-                        <div class="flex items-center justify-between border-t border-bordercolor/50 pt-3">
-                            <span class="text-xs text-slate-500 font-mono">Promoted Post</span>
-                            <a href="${ad.link}" target="_blank" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-lg shadow-rose-600/20">${ad.cta} &rarr;</a>
-                        </div>
-                    `;
-                    feedContainer.appendChild(adCard);
-                }
-
-                // Standard News Article Card
                 const card = document.createElement('article');
-                card.className = 'bg-cardbg border border-bordercolor rounded-2xl overflow-hidden shadow-xl hover:border-slate-600 transition-all flex flex-col';
-                
-                const imageUrl = article.image || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=60';
-                
+                card.className = "bg-wireCard border border-wireBorder rounded-2xl p-5 md:p-6 shadow-2xl hover:border-slate-500 transition-all flex flex-col sm:flex-row gap-5 items-stretch cursor-pointer";
+                card.onclick = (e) => {
+                    // Prevent triggering if user clicks directly on external link
+                    if (!e.target.closest('a')) {
+                        openArticleReader(globalIndex);
+                    }
+                };
+
+                const leftBlockHtml = article.image 
+                    ? `<div class="w-full sm:w-5/12 h-48 sm:h-auto min-h-[160px] bg-wireBg border border-wireBorder rounded-xl overflow-hidden shrink-0 relative group">
+                         <img src="${article.image}" alt="news thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.outerHTML='<div class=\\'w-full sm:w-5/12 min-h-[160px] bg-wireAd border border-wireBorder rounded-xl flex items-center justify-center font-mono font-black text-4xl text-wireMuted/50 shrink-0\\'>AD</div>'">
+                       </div>`
+                    : `<div class="w-full sm:w-5/12 min-h-[160px] bg-wireAd border border-wireBorder rounded-xl flex items-center justify-center font-mono font-black text-4xl text-wireMuted/50 shrink-0 select-none">
+                        AD
+                       </div>`;
+
                 card.innerHTML = `
-                    <div class="h-48 sm:h-64 w-full overflow-hidden bg-slate-800 relative">
-                        <img src="${imageUrl}" alt="News Image" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500" onerror="this.src='https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=60'">
-                        <span class="absolute bottom-3 left-3 bg-black/60 backdrop-blur-md text-slate-200 text-xs px-3 py-1 rounded-full border border-white/10 font-medium">
-                            ${article.source ? article.source.name : 'News Feed'}
-                        </span>
-                    </div>
-                    <div class="p-5 flex flex-col flex-1 justify-between">
+                    ${leftBlockHtml}
+                    <div class="flex flex-col justify-between flex-1 py-1 gap-3">
                         <div>
-                            <h2 class="text-xl font-bold text-white mb-2 leading-snug">${article.title}</h2>
-                            <p class="text-slate-300 text-sm mb-4 leading-relaxed line-clamp-3">${article.description || 'Click read more to check out the full story details and updates.'}</p>
+                            <h2 class="font-mono text-xl md:text-2xl font-bold text-white leading-tight mb-2 hover:text-slate-200 transition-colors">
+                                ${article.title}
+                            </h2>
+                            <p class="font-mono text-xs md:text-sm text-wireText leading-relaxed line-clamp-4">
+                                ${article.description || article.content || 'Click read more to read the full story...'}
+                            </p>
                         </div>
-                        <div class="flex items-center justify-between border-t border-bordercolor/50 pt-3">
-                            <span class="text-xs text-slate-400">${new Date(article.publishedAt || Date.now()).toLocaleDateString()}</span>
-                            <a href="${article.url}" target="_blank" class="text-rose-400 hover:text-rose-300 text-sm font-semibold flex items-center gap-1 group">
-                                Read More 
-                                <span class="group-hover:translate-x-1 transition-transform">&rarr;</span>
-                            </a>
-                        </div>
+                        <button onclick="openArticleReader(${globalIndex})" class="self-start text-xs md:text-sm font-mono text-slate-200 hover:text-white underline underline-offset-4 decoration-wireMuted hover:decoration-white transition-all font-semibold">
+                            read more
+                        </button>
                     </div>
                 `;
+
                 feedContainer.appendChild(card);
             });
         }
 
-        // Category Switcher
-        function switchCategory(category) {
-            currentCategory = category;
-            currentQuery = '';
-            globalItemCounter = 0;
-            document.getElementById('searchInput').value = '';
-            document.getElementById('feedContainer').innerHTML = '';
-            
-            // Update UI active styles on buttons
-            document.querySelectorAll('.cat-btn').forEach(btn => {
-                btn.className = "cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-cardbg text-slate-300 hover:bg-slate-800 whitespace-nowrap transition-all border border-bordercolor";
-            });
-            event.target.className = "cat-btn px-4 py-1.5 rounded-full text-xs font-semibold bg-rose-500 text-white whitespace-nowrap transition-all shadow-sm";
+        // FULL ARTICLE READER MODAL LOGIC
+        function openArticleReader(index) {
+            const article = articlesStore[index];
+            if (!article) return;
 
-            loadNews();
+            document.getElementById('modalTitle').innerText = article.title;
+            
+            // Full article content assembly
+            const fullText = article.content || article.description || "Full story details are unavailable directly from the feed provider. Click the source link above to read the full story on the publisher's official website.";
+            document.getElementById('modalBody').innerText = fullText + "\n\n" + (article.content ? "Article provided via live news aggregation feed." : "");
+
+            document.getElementById('modalExternalLink').href = article.url || "#";
+
+            const imgContainer = document.getElementById('modalImageContainer');
+            const imgEl = document.getElementById('modalImage');
+            if (article.image) {
+                imgEl.src = article.image;
+                imgContainer.classList.remove('hidden');
+            } else {
+                imgContainer.classList.add('hidden');
+            }
+
+            document.getElementById('articleModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Lock background scrolling
         }
 
-        // Search Handlers
-        function handleSearch(e) {
-            if (e.key === 'Enter') {
-                const query = e.target.value.trim();
-                if (query) {
-                    currentQuery = query;
-                    globalItemCounter = 0;
-                    document.getElementById('feedContainer').innerHTML = '';
-                    loadNews();
-                }
+        function closeArticleModal() {
+            document.getElementById('articleModal').classList.add('hidden');
+            document.body.style.overflow = 'auto'; // Unlock background scrolling
+        }
+
+        function handleSearchKeypress(e) {
+            if (e.key === 'Enter') executeSearch();
+        }
+
+        function executeSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query) {
+                currentSearchQuery = query;
+                resetAndReload();
             }
         }
 
-        function searchKeyword(keyword) {
-            document.getElementById('searchInput').value = keyword;
-            currentQuery = keyword;
-            globalItemCounter = 0;
-            document.getElementById('feedContainer').innerHTML = '';
-            loadNews();
+        function clickTrending(topic) {
+            document.getElementById('searchInput').value = topic;
+            currentSearchQuery = topic;
+            resetAndReload();
         }
 
         function resetFeed() {
-            currentQuery = '';
             document.getElementById('searchInput').value = '';
-            globalItemCounter = 0;
-            document.getElementById('feedContainer').innerHTML = '';
-            loadNews();
+            currentSearchQuery = '';
+            resetAndReload();
         }
 
-        // Robust Mock Fallback Generator (Ensures layout renders preview data instantly)
-        function getMockArticles() {
+        function resetAndReload() {
+            totalItemsRendered = 0;
+            articlesStore = [];
+            document.getElementById('mainNewsFeed').innerHTML = '';
+            loadArticles();
+        }
+
+        function getWireframeMockArticles() {
             return [
                 {
-                    title: "Breakthrough in Neural Interfaces Allows Seamless Real-Time Thought Translation",
-                    description: "Researchers announce a major milestone in high-bandwidth brain-computer integration, opening new pathways for human-digital interaction.",
-                    url: "#",
-                    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=60",
-                    publishedAt: new Date().toISOString(),
-                    source: { name: "TechCrunch" }
+                    title: "Example news title",
+                    description: "Example news content lorum ipmsum sla bla bla bla blab bloah bla yap yap ypa ypa pyap yapppappapapapa",
+                    content: "Example news content lorum ipmsum sla bla bla bla blab bloah bla yap yap ypa ypa pyap yapppappapapapa.\n\nAdditional extended content section for full in-app article reading preview mode. Users can scroll freely through the full article without leaving your site.",
+                    url: "https://news.google.com",
+                    image: null
                 },
                 {
-                    title: "Global Markets Rally as Green Energy Investments Hit Record Highs in Q3",
-                    description: "Clean tech sectors lead indexes upward as multinational funds pivot toward scalable sustainable infrastructure solutions.",
-                    url: "#",
-                    image: "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=600&auto=format&fit=crop&q=60",
-                    publishedAt: new Date().toISOString(),
-                    source: { name: "Bloomberg" }
-                },
-                {
-                    title: "Next-Generation Quantum Processors Achieve Error-Free State Maintenance",
-                    description: "Physicists demonstrate stable qubits running complex cryptographic algorithms without traditional decoherence degradation.",
-                    url: "#",
-                    image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&auto=format&fit=crop&q=60",
-                    publishedAt: new Date().toISOString(),
-                    source: { name: "Wired" }
-                },
-                {
-                    title: "Autonomous Logistics Networks Transform Urban Delivery Frameworks",
-                    description: "Metropolitan centers successfully integrate drone corridors and automated ground fleets, cutting transit times by half.",
-                    url: "#",
-                    image: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=60",
-                    publishedAt: new Date().toISOString(),
-                    source: { name: "The Verge" }
+                    title: "news title 2",
+                    description: "Example news content lorum ipmsum sla bla bla bla blab bloah bla yap yap ypa ypa pyap yapppappapapapa",
+                    content: "Full news story #2 extended view. Built directly inside the single-file frontend container to give a clean reader experience.",
+                    url: "https://news.google.com",
+                    image: null
                 }
             ];
         }
