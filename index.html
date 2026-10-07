@@ -1,452 +1,294 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News Feed Aggregator</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        wireBg: '#0f172a',
-                        wireCard: '#1e293b',
-                        wireBorder: '#334155',
-                        wireText: '#cbd5e1',
-                        wireMuted: '#64748b',
-                        wireAd: '#182232'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Smooth transition for auto-hiding floating header */
-        #floatingHeader {
-            transition: transform 0.25s ease-in-out;
-        }
-        .header-hidden {
-            transform: translateY(-110%);
-        }
-        .header-visible {
-            transform: translateY(0);
-        }
-
-        /* Custom subtle scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f172a;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NewsTok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: { extend: {
+    colors: { bg:'#0b1220', card:'#131c2e', line:'#25324a', text:'#c7d2e4', muted:'#7084a3', accent:'#5eead4', ad:'#101828' },
+    fontFamily: {
+      sans:['Inter','system-ui','sans-serif'],
+      display:['Bricolage Grotesque','Inter','system-ui','sans-serif']
+    }
+  }}
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  #topbar { transition: transform .25s ease; }
+  #topbar.hide { transform: translateY(-110%); }
+  .line-clamp-3 { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  ::-webkit-scrollbar { width:8px; } ::-webkit-scrollbar-track { background:#0b1220; }
+  ::-webkit-scrollbar-thumb { background:#25324a; border-radius:4px; }
+  .skeleton { background:linear-gradient(90deg,#131c2e 25%,#1b2740 50%,#131c2e 75%); background-size:200% 100%; animation:sh 1.4s infinite; }
+  @keyframes sh { to { background-position:-200% 0; } }
+  :focus-visible { outline:2px solid #5eead4; outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+</style>
 </head>
-<body class="bg-wireBg text-wireText font-sans min-h-screen pt-20 pb-12 px-4 md:px-8 antialiased selection:bg-slate-700 selection:text-white">
+<body class="bg-bg text-text font-sans min-h-screen pt-24 pb-12 px-4 md:px-8 antialiased selection:bg-accent/30">
 
-    <!-- FLOATING AUTO-HIDING SEARCH HEADER -->
-    <header id="floatingHeader" class="fixed top-0 left-0 right-0 z-40 p-3 md:p-4 header-visible bg-wireBg/95 backdrop-blur-md border-b border-wireBorder/80 shadow-lg">
-        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-            
-            <!-- Logo / Brand Title -->
-            <div onclick="resetFeed()" class="cursor-pointer font-bold text-lg md:text-xl text-white flex items-center gap-2 select-none shrink-0">
-                <span class="bg-slate-800 text-slate-100 border border-wireBorder px-2.5 py-1 rounded-md font-extrabold text-sm tracking-wider">NT</span>
-                <span class="hidden sm:inline tracking-tight text-slate-100">NewsTok</span>
-            </div>
+<!-- TOP BAR -->
+<header id="topbar" class="fixed top-0 inset-x-0 z-40 bg-bg/90 backdrop-blur-md border-b border-line">
+  <div class="max-w-7xl mx-auto flex items-center gap-4 p-3 md:p-4">
+    <button id="homeBtn" class="flex items-center gap-2.5 shrink-0" aria-label="NewsTok home">
+      <span class="grid place-items-center w-9 h-9 rounded-lg bg-accent text-bg font-display font-extrabold text-sm">NT</span>
+      <span class="hidden sm:inline font-display font-bold text-xl text-white tracking-tight">NewsTok</span>
+    </button>
 
-            <!-- Search Bar (Floating & Auto-Hiding) -->
-            <div class="flex-1 max-w-xl relative">
-                <input 
-                    type="text" 
-                    id="searchInput"
-                    placeholder="Search news, topics, keywords..." 
-                    class="w-full bg-wireCard border border-wireBorder rounded-lg px-4 py-2 pl-10 text-sm text-slate-100 placeholder-wireMuted focus:outline-none focus:border-slate-400 shadow-inner transition-colors"
-                    onkeypress="handleSearchKeypress(event)"
-                >
-                <button onclick="executeSearch()" class="absolute left-3 top-2.5 text-wireMuted hover:text-white transition-colors" aria-label="Search">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </button>
-            </div>
+    <form id="searchForm" class="flex-1 max-w-xl relative" role="search">
+      <svg class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input id="searchInput" type="search" placeholder="Search news, topics, keywords" class="w-full bg-card border border-line rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-muted focus:border-accent focus:outline-none transition-colors">
+    </form>
 
-            <!-- Refresh Button -->
-            <button onclick="resetFeed()" class="hidden sm:flex text-xs font-medium text-slate-300 hover:text-white bg-wireCard hover:bg-slate-700 px-3 py-2 rounded-lg border border-wireBorder transition-all items-center gap-1.5 shrink-0">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                </svg>
-                Refresh
-            </button>
-        </div>
-    </header>
+    <button id="refreshBtn" class="hidden sm:flex items-center gap-1.5 text-xs font-medium text-text hover:text-white bg-card hover:bg-line px-3 py-2 rounded-lg border border-line transition-colors shrink-0">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Refresh
+    </button>
+  </div>
+  <nav id="categoryBar" class="max-w-7xl mx-auto px-3 md:px-4 pb-3 flex gap-2 overflow-x-auto" aria-label="Categories"></nav>
+</header>
 
-    <!-- MAIN APPLICATION GRID -->
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+<!-- LAYOUT -->
+<main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+  <section class="lg:col-span-8">
+    <h1 id="feedTitle" class="font-display font-bold text-2xl text-white mb-4">Top headlines</h1>
+    <div id="feed" class="flex flex-col gap-5"></div>
+    <div id="status" class="py-10 text-center text-sm text-muted" aria-live="polite"></div>
+    <div id="sentinel" class="h-1"></div>
+  </section>
 
-        <!-- LEFT COLUMN: Main News Feed Article Stream -->
-        <section class="lg:col-span-8 flex flex-col gap-5" id="mainNewsFeed">
-            <!-- News Article Cards & In-Feed Native Ads injected dynamically -->
-        </section>
-
-        <!-- RIGHT COLUMN: Trending Topics + AD Banner -->
-        <aside class="lg:col-span-4 flex flex-col gap-5 sticky top-24">
-            
-            <!-- TOP RIGHT: Trending Topic Section -->
-            <div class="bg-wireCard border border-wireBorder rounded-xl p-5 shadow-sm">
-                <h3 class="font-bold text-slate-100 text-sm tracking-wide uppercase mb-3 pb-2 border-b border-wireBorder flex items-center justify-between">
-                    <span>Trending Topic</span>
-                    <span class="text-[11px] font-normal normal-case text-wireMuted">Live Feed</span>
-                </h3>
-                <div class="flex flex-col gap-2.5 text-sm" id="trendingList">
-                    <button onclick="clickTrending('AI Breakthrough')" class="text-left p-3 rounded-lg bg-wireBg hover:bg-slate-800 border border-wireBorder/60 text-slate-200 hover:text-white transition-all flex items-center gap-3 group">
-                        <span class="text-base">🌌</span>
-                        <span class="font-medium text-slate-200 group-hover:text-white">Trending: AI Breakthrough</span>
-                    </button>
-                    <button onclick="clickTrending('Climate Action')" class="text-left p-3 rounded-lg bg-wireBg hover:bg-slate-800 border border-wireBorder/60 text-slate-200 hover:text-white transition-all flex items-center gap-3 group">
-                        <span class="text-base">🌍</span>
-                        <span class="font-medium text-slate-200 group-hover:text-white">Trending: Climate Action</span>
-                    </button>
-                    <button onclick="clickTrending('New Space Mission')" class="text-left p-3 rounded-lg bg-wireBg hover:bg-slate-800 border border-wireBorder/60 text-slate-200 hover:text-white transition-all flex items-center gap-3 group">
-                        <span class="text-base">🚀</span>
-                        <span class="font-medium text-slate-200 group-hover:text-white">Trending: New Space Mission</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- BOTTOM RIGHT: Permanent Sidebar AD Block -->
-            <div class="bg-wireAd border border-wireBorder rounded-xl p-8 min-h-[200px] flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group hover:border-slate-500 transition-colors">
-                <div class="text-5xl font-black text-wireMuted/30 group-hover:text-wireMuted/50 transition-colors tracking-widest select-none">AD</div>
-                <span class="text-[10px] text-wireMuted uppercase tracking-widest mt-2 font-medium">Sponsored Advertisement</span>
-            </div>
-
-        </aside>
-
-    </main>
-
-    <!-- FULL ARTICLE READER OVERLAY -->
-    <div id="articleModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md overflow-y-auto p-4 md:p-8 flex justify-center items-start">
-        <div class="bg-wireCard border border-wireBorder rounded-xl max-w-4xl w-full my-6 p-6 md:p-8 shadow-2xl relative text-slate-200 flex flex-col gap-6">
-            
-            <!-- Modal Header / Controls -->
-            <div class="flex items-center justify-between border-b border-wireBorder pb-4">
-                <button onclick="closeArticleModal()" class="flex items-center gap-2 text-xs md:text-sm text-slate-300 hover:text-white bg-wireBg px-3 py-1.5 rounded-lg border border-wireBorder transition-colors font-medium">
-                    <span>←</span> Back to Feed
-                </button>
-                <a id="modalExternalLink" href="#" target="_blank" rel="noopener" class="text-xs md:text-sm text-slate-300 hover:text-white underline underline-offset-4 font-medium">
-                    Open Original Source ↗
-                </a>
-            </div>
-
-            <!-- Article Hero Image -->
-            <div id="modalImageContainer" class="w-full h-64 md:h-96 bg-wireBg border border-wireBorder rounded-lg overflow-hidden hidden">
-                <img id="modalImage" src="" alt="Article thumbnail" class="w-full h-full object-cover">
-            </div>
-
-            <!-- Article Title -->
-            <h1 id="modalTitle" class="text-2xl md:text-3xl font-bold text-white leading-tight"></h1>
-
-            <!-- Article Content Body -->
-            <div id="modalBody" class="text-sm md:text-base text-wireText leading-relaxed whitespace-pre-line border-t border-wireBorder pt-4"></div>
-
-            <!-- Article Reader Footer -->
-            <div class="border-t border-wireBorder pt-4 flex justify-end items-center">
-                <button onclick="closeArticleModal()" class="bg-slate-100 text-slate-900 font-semibold px-5 py-2 text-sm rounded-lg hover:bg-slate-200 transition-colors">
-                    Close
-                </button>
-            </div>
-        </div>
+  <aside class="lg:col-span-4 flex flex-col gap-5 lg:sticky lg:top-40">
+    <div class="bg-card border border-line rounded-xl p-5">
+      <h2 class="font-display font-bold text-white text-base mb-3 pb-3 border-b border-line">Trending topics</h2>
+      <div id="trending" class="flex flex-col gap-2"></div>
     </div>
-
-    <!-- Loading Spinner -->
-    <div id="loadingSpinner" class="py-10 flex justify-center items-center">
-        <div class="w-7 h-7 border-2 border-wireMuted border-t-white rounded-full animate-spin"></div>
+    <div class="bg-ad border border-dashed border-line rounded-xl min-h-[200px] grid place-items-center text-center p-8">
+      <div><div class="font-display text-5xl font-extrabold text-muted/30">AD</div><div class="text-[11px] text-muted mt-2">Sponsored</div></div>
     </div>
+  </aside>
+</main>
 
-    <script>
-        // Key Array Rotation
-        const gnewsKeys = [
-            "c12f5f05120277c8472ceb2a50af4b12",
-            "YOUR_GNEWS_KEY_2",
-            "YOUR_GNEWS_KEY_3"
-        ];
+<!-- READER -->
+<div id="reader" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md overflow-y-auto p-4 md:p-8 justify-center items-start" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+  <article class="bg-card border border-line rounded-xl max-w-3xl w-full my-6 p-6 md:p-8 shadow-2xl flex flex-col gap-5">
+    <div class="flex items-center justify-between border-b border-line pb-4">
+      <button data-close class="text-sm text-text hover:text-white bg-bg px-3 py-1.5 rounded-lg border border-line transition-colors">Back to feed</button>
+      <a id="readerLink" target="_blank" rel="noopener noreferrer" class="text-sm text-accent hover:underline underline-offset-4">Read on source site</a>
+    </div>
+    <div id="readerImgWrap" class="hidden w-full h-64 md:h-96 bg-bg border border-line rounded-lg overflow-hidden"><img id="readerImg" alt="" class="w-full h-full object-cover"></div>
+    <div id="readerMeta" class="text-xs text-muted"></div>
+    <h2 id="readerTitle" class="font-display text-2xl md:text-3xl font-bold text-white leading-tight"></h2>
+    <div id="readerBody" class="text-base text-text leading-relaxed whitespace-pre-line max-w-prose"></div>
+    <div class="border-t border-line pt-4 flex justify-end">
+      <button data-close class="bg-accent text-bg font-semibold px-5 py-2 text-sm rounded-lg hover:brightness-110 transition">Close</button>
+    </div>
+  </article>
+</div>
 
-        // Fallback Feed Configuration
-        const backupApis = [
-            {
-                fetcher: async () => {
-                    const res = await fetch("https://api.rss2json.com/v1/api.json?rss_url=https://techcrunch.com/feed/");
-                    const data = await res.json();
-                    return data.items.map(item => ({
-                        title: item.title,
-                        description: item.description.replace(/<[^>]*>?/gm, ''),
-                        content: item.content || item.description.replace(/<[^>]*>?/gm, ''),
-                        url: item.link,
-                        image: item.thumbnail || item.enclosure?.link || null
-                    }));
-                }
-            }
-        ];
+<script>
+/* ---------- CONFIG ---------- */
+const CATEGORIES = [
+  ['general','Top'],['world','World'],['technology','Technology'],['business','Business'],
+  ['science','Science'],['health','Health'],['sports','Sports'],['entertainment','Entertainment']
+];
+const TRENDING = [['🌌','AI Breakthrough'],['🌍','Climate Action'],['🚀','New Space Mission']];
+const AD_EVERY = 5;
 
-        let activeKeyIndex = 0;
-        let currentSearchQuery = '';
-        let isFetching = false;
-        let totalItemsRendered = 0;
-        let articlesStore = [];
+/* ---------- STATE ---------- */
+const state = { query:'', category:'general', page:1, loading:false, done:false, articles:[], seen:new Set(), rendered:0, usingFallback:false };
+const $ = id => document.getElementById(id);
+const feed = $('feed'), statusEl = $('status');
 
-        // Auto-Hide Header State Logic
-        let lastScrollTop = 0;
-        const floatingHeader = document.getElementById('floatingHeader');
+/* ---------- HELPERS ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function timeAgo(iso) {
+  const t = Date.parse(iso); if (!t) return '';
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60); if (h < 24) return h + ' h ago';
+  return Math.round(h / 24) + ' d ago';
+}
+const metaLine = a => [a.source?.name, timeAgo(a.publishedAt)].filter(Boolean).join(' • ');
 
-        window.addEventListener('DOMContentLoaded', () => {
-            loadArticles();
+/* ---------- DATA ---------- */
+async function fromApi() {
+  const p = new URLSearchParams({ q: state.query, category: state.category, page: state.page });
+  const r = await fetch('/api/news?' + p);
+  if (!r.ok) throw new Error('api ' + r.status);
+  return r.json();
+}
+async function fromRss() {
+  const r = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https://techcrunch.com/feed/');
+  const d = await r.json();
+  return d.items.map(i => ({
+    title: i.title,
+    description: i.description.replace(/<[^>]*>?/gm, ''),
+    content: i.content ? i.content.replace(/<[^>]*>?/gm, '') : i.description.replace(/<[^>]*>?/gm, ''),
+    url: i.link, image: i.thumbnail || i.enclosure?.link || null,
+    publishedAt: i.pubDate, source: { name: 'TechCrunch' }
+  }));
+}
+async function fetchArticles() {
+  if (!state.usingFallback) {
+    try { return await fromApi(); } catch (e) { console.warn('News API failed:', e); }
+    state.usingFallback = true;
+  }
+  if (state.page === 1) {
+    try { return await fromRss(); } catch (e) { console.warn('RSS failed:', e); }
+    return mockArticles();
+  }
+  return [];
+}
 
-            window.addEventListener('scroll', () => {
-                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+/* ---------- RENDER ---------- */
+function skeletons(n = 3) {
+  feed.insertAdjacentHTML('beforeend', Array.from({length:n}, () =>
+    `<div class="sk skeleton h-44 rounded-xl border border-line"></div>`).join(''));
+}
+function adCard() {
+  const d = document.createElement('div');
+  d.className = 'bg-ad border border-dashed border-line rounded-xl min-h-[120px] grid place-items-center text-center p-6';
+  d.innerHTML = '<div><div class="font-display text-3xl font-extrabold text-muted/30">AD</div><div class="text-[11px] text-muted mt-1">Sponsored</div></div>';
+  return d;
+}
+function thumb(a) {
+  const wrap = document.createElement('div');
+  wrap.className = 'w-full sm:w-5/12 h-44 sm:h-auto min-h-[140px] bg-ad border border-line rounded-lg overflow-hidden shrink-0 grid place-items-center';
+  const placeholder = () => { wrap.innerHTML = '<span class="font-display text-3xl font-extrabold text-muted/30 select-none">NT</span>'; };
+  if (!a.image) { placeholder(); return wrap; }
+  const img = new Image();
+  img.src = a.image; img.alt = ''; img.loading = 'lazy';
+  img.className = 'w-full h-full object-cover';
+  img.onerror = placeholder;
+  wrap.appendChild(img);
+  return wrap;
+}
+function renderArticles(list) {
+  document.querySelectorAll('.sk').forEach(e => e.remove());
+  list.forEach(a => {
+    const idx = state.articles.push(a) - 1;
+    const card = document.createElement('article');
+    card.className = 'bg-card border border-line rounded-xl p-5 hover:border-accent/50 transition-colors flex flex-col sm:flex-row gap-5 cursor-pointer';
+    card.tabIndex = 0;
+    card.appendChild(thumb(a));
+    const body = document.createElement('div');
+    body.className = 'flex flex-col justify-between flex-1 gap-3';
+    body.innerHTML = `
+      <div>
+        <div class="text-xs text-muted mb-1.5">${esc(metaLine(a))}</div>
+        <h2 class="font-display text-lg md:text-xl font-bold text-white leading-snug mb-2">${esc(a.title)}</h2>
+        <p class="text-sm text-text leading-relaxed line-clamp-3">${esc(a.description || a.content || '')}</p>
+      </div>
+      <span class="self-start text-xs font-semibold text-accent">Read more</span>`;
+    card.appendChild(body);
+    const open = () => openReader(idx);
+    card.addEventListener('click', open);
+    card.addEventListener('keydown', e => { if (e.key === 'Enter') open(); });
+    feed.appendChild(card);
+    if (++state.rendered % AD_EVERY === 0) feed.appendChild(adCard());
+  });
+}
 
-                if (scrollTop > lastScrollTop && scrollTop > 80) {
-                    floatingHeader.classList.remove('header-visible');
-                    floatingHeader.classList.add('header-hidden');
-                } else if (scrollTop < lastScrollTop) {
-                    floatingHeader.classList.remove('header-hidden');
-                    floatingHeader.classList.add('header-visible');
-                }
-                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+/* ---------- LOADING ---------- */
+async function load() {
+  if (state.loading || state.done) return;
+  state.loading = true; statusEl.textContent = '';
+  skeletons(state.page === 1 ? 4 : 2);
 
-                // Infinite scroll handler
-                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 450 && !isFetching) {
-                    loadArticles();
-                }
-            });
-        });
+  const incoming = await fetchArticles();
+  const fresh = incoming.filter(a => a.url && !state.seen.has(a.url));
+  fresh.forEach(a => state.seen.add(a.url));
 
-        async function fetchNewsData(query = '') {
-            const hasValidGNewsKeys = gnewsKeys.length > 0 && !gnewsKeys[0].includes("YOUR_GNEWS_KEY");
+  if (!fresh.length) {
+    state.done = true;
+    document.querySelectorAll('.sk').forEach(e => e.remove());
+    statusEl.textContent = state.rendered
+      ? "You're all caught up."
+      : 'No stories found. Try a different search or category.';
+  } else {
+    renderArticles(fresh);
+    state.page++;
+    if (state.usingFallback) { state.done = true; statusEl.textContent = 'Live news is unavailable right now, showing backup stories.'; }
+  }
+  state.loading = false;
+}
+function reset({ query = '', category = 'general' } = {}) {
+  Object.assign(state, { query, category, page:1, loading:false, done:false, articles:[], seen:new Set(), rendered:0, usingFallback:false });
+  feed.innerHTML = ''; statusEl.textContent = '';
+  $('feedTitle').textContent = query ? `Results for “${query}”` : (CATEGORIES.find(c => c[0] === category)?.[1] || 'Top') + ' headlines';
+  $('searchInput').value = query;
+  drawCategories();
+  window.scrollTo({ top: 0 });
+  load();
+}
 
-            if (hasValidGNewsKeys) {
-                const currentKey = gnewsKeys[activeKeyIndex];
-                const endpoint = query 
-                    ? `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&lang=en&max=10&apikey=${currentKey}`
-                    : `https://gnews.io/api/v4/top-headlines?category=general&lang=en&max=10&apikey=${currentKey}`;
+/* ---------- READER ---------- */
+function openReader(i) {
+  const a = state.articles[i]; if (!a) return;
+  $('readerTitle').textContent = a.title;
+  $('readerMeta').textContent = metaLine(a);
+  $('readerBody').textContent = a.content || a.description || 'The full story is available on the source site.';
+  $('readerLink').href = a.url || '#';
+  const wrap = $('readerImgWrap');
+  if (a.image) { $('readerImg').src = a.image; wrap.classList.remove('hidden'); } else wrap.classList.add('hidden');
+  $('reader').classList.remove('hidden'); $('reader').classList.add('flex');
+  document.body.style.overflow = 'hidden';
+}
+function closeReader() {
+  $('reader').classList.add('hidden'); $('reader').classList.remove('flex');
+  document.body.style.overflow = '';
+}
 
-                try {
-                    const response = await fetch(endpoint);
+/* ---------- UI WIRING ---------- */
+function drawCategories() {
+  $('categoryBar').innerHTML = CATEGORIES.map(([id, label]) => {
+    const active = !state.query && state.category === id;
+    return `<button data-cat="${id}" class="shrink-0 text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${active ? 'bg-accent text-bg border-accent' : 'bg-card text-text border-line hover:border-accent/60'}">${label}</button>`;
+  }).join('');
+}
+$('categoryBar').addEventListener('click', e => { const b = e.target.closest('[data-cat]'); if (b) reset({ category: b.dataset.cat }); });
+$('trending').innerHTML = TRENDING.map(([emoji, t]) =>
+  `<button data-topic="${esc(t)}" class="text-left p-3 rounded-lg bg-bg hover:bg-line/60 border border-line text-sm font-medium text-white transition-colors flex items-center gap-3"><span>${emoji}</span>${esc(t)}</button>`).join('');
+$('trending').addEventListener('click', e => { const b = e.target.closest('[data-topic]'); if (b) reset({ query: b.dataset.topic }); });
+$('searchForm').addEventListener('submit', e => { e.preventDefault(); const q = $('searchInput').value.trim(); if (q) reset({ query: q }); });
+$('homeBtn').addEventListener('click', () => reset());
+$('refreshBtn').addEventListener('click', () => reset({ query: state.query, category: state.category }));
+$('reader').addEventListener('click', e => { if (e.target === $('reader') || e.target.closest('[data-close]')) closeReader(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReader(); });
 
-                    if (response.status === 429 || response.status === 401) {
-                        activeKeyIndex = (activeKeyIndex + 1) % gnewsKeys.length;
-                        return fetchNewsData(query);
-                    }
+/* auto-hide header + infinite scroll */
+let lastY = 0;
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  $('topbar').classList.toggle('hide', y > lastY && y > 120);
+  lastY = Math.max(y, 0);
+}, { passive: true });
+new IntersectionObserver(es => { if (es[0].isIntersecting) load(); }, { rootMargin: '500px' }).observe($('sentinel'));
 
-                    if (!response.ok) throw new Error("GNews error");
+/* ---------- MOCK DATA (last resort) ---------- */
+function mockArticles() {
+  const m = [
+    ['Satlyt raises $8M to run AI on satellites','Satlyt wants to be the Android of orbital computing, offering open software that works on many companies\' satellites.'],
+    ['Google releases its most powerful Gemini model yet','The new model is pitched as a workhorse for coding and cybersecurity work.'],
+    ['Pentagon taps tech leaders to study the future of warfare','The panel will examine autonomous systems and modern defense software.'],
+    ['Quantum computing breakthrough promises fault-tolerant scaling','Researchers demonstrate error correction operating above fault-tolerance thresholds.'],
+    ['Climate summit reaches deal on renewable grid funding','Delegates approve provisions for grid interconnectivity and clean energy storage.'],
+    ['Rover finds ancient geological signatures on Mars','Spectral analysis reveals sediment compositions consistent with lake bed deposits.']
+  ];
+  return m.map(([title, description], i) => ({ title, description, content: description, url: 'https://news.google.com/?mock=' + i, image: null, source: { name: 'Sample' } }));
+}
 
-                    const data = await response.json();
-                    return data.articles || [];
-                } catch (err) {}
-            }
-
-            if (backupApis.length > 0) {
-                try {
-                    return await backupApis[0].fetcher();
-                } catch (backupErr) {}
-            }
-
-            return getWireframeMockArticles();
-        }
-
-        async function loadArticles() {
-            if (isFetching) return;
-            isFetching = true;
-            document.getElementById('loadingSpinner').style.display = 'flex';
-
-            const articles = await fetchNewsData(currentSearchQuery);
-            articlesStore = [...articlesStore, ...articles];
-            renderArticles(articles);
-
-            isFetching = false;
-            document.getElementById('loadingSpinner').style.display = 'none';
-        }
-
-        function renderArticles(articles) {
-            const feedContainer = document.getElementById('mainNewsFeed');
-
-            if (articles.length === 0 && totalItemsRendered === 0) {
-                feedContainer.innerHTML = `
-                    <div class="p-8 text-center text-wireMuted bg-wireCard border border-wireBorder rounded-xl">
-                        No articles found. Try searching for another topic.
-                    </div>`;
-                return;
-            }
-
-            articles.forEach((article) => {
-                const globalIndex = articlesStore.length - articles.length + articles.indexOf(article);
-                totalItemsRendered++;
-
-                const card = document.createElement('article');
-                card.className = "bg-wireCard border border-wireBorder rounded-xl p-5 shadow-sm hover:border-slate-500 transition-all flex flex-col sm:flex-row gap-5 items-stretch cursor-pointer";
-                card.onclick = (e) => {
-                    if (!e.target.closest('a')) {
-                        openArticleReader(globalIndex);
-                    }
-                };
-
-                // Left block image or AD placeholder block
-                const leftBlockHtml = article.image 
-                    ? `<div class="w-full sm:w-5/12 h-44 sm:h-auto min-h-[140px] bg-wireBg border border-wireBorder rounded-lg overflow-hidden shrink-0 relative group">
-                         <img src="${article.image}" alt="Article thumbnail" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.parentElement.outerHTML='<div class=\\'w-full sm:w-5/12 min-h-[140px] bg-wireAd border border-wireBorder rounded-lg flex items-center justify-center font-black text-3xl text-wireMuted/40 shrink-0 select-none\\'>AD</div>'">
-                       </div>`
-                    : `<div class="w-full sm:w-5/12 min-h-[140px] bg-wireAd border border-wireBorder rounded-lg flex items-center justify-center font-black text-3xl text-wireMuted/40 shrink-0 select-none">
-                        AD
-                       </div>`;
-
-                card.innerHTML = `
-                    ${leftBlockHtml}
-                    <div class="flex flex-col justify-between flex-1 py-0.5 gap-2.5">
-                        <div>
-                            <h2 class="text-lg md:text-xl font-bold text-slate-100 leading-snug mb-2 hover:text-white transition-colors">
-                                ${article.title}
-                            </h2>
-                            <p class="text-xs md:text-sm text-wireText leading-relaxed line-clamp-3">
-                                ${article.description || article.content || 'Click read more to view the full story...'}
-                            </p>
-                        </div>
-                        <button onclick="openArticleReader(${globalIndex})" class="self-start text-xs font-semibold text-slate-300 hover:text-white underline underline-offset-4 decoration-wireMuted hover:decoration-white transition-all">
-                            read more
-                        </button>
-                    </div>
-                `;
-
-                feedContainer.appendChild(card);
-
-                // INJECT A NATIVE FEED AD CARD EVERY 5 POSTS
-                if (totalItemsRendered % 5 === 0) {
-                    const adCard = document.createElement('div');
-                    adCard.className = "bg-wireAd border border-wireBorder rounded-xl p-6 shadow-sm flex flex-col items-center justify-center text-center my-1 hover:border-slate-500 transition-colors min-h-[140px]";
-                    adCard.innerHTML = `
-                        <div class="text-4xl font-black text-wireMuted/30 tracking-widest select-none">AD</div>
-                        <span class="text-[10px] text-wireMuted uppercase tracking-widest mt-1.5 font-medium">Sponsored Native Stream Banner</span>
-                    `;
-                    feedContainer.appendChild(adCard);
-                }
-            });
-        }
-
-        function openArticleReader(index) {
-            const article = articlesStore[index];
-            if (!article) return;
-
-            document.getElementById('modalTitle').innerText = article.title;
-            
-            const fullText = article.content || article.description || "Full story content is available at the source article link.";
-            document.getElementById('modalBody').innerText = fullText;
-
-            document.getElementById('modalExternalLink').href = article.url || "#";
-
-            const imgContainer = document.getElementById('modalImageContainer');
-            const imgEl = document.getElementById('modalImage');
-            if (article.image) {
-                imgEl.src = article.image;
-                imgContainer.classList.remove('hidden');
-            } else {
-                imgContainer.classList.add('hidden');
-            }
-
-            document.getElementById('articleModal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeArticleModal() {
-            document.getElementById('articleModal').classList.add('hidden');
-            document.body.style.overflow = 'auto';
-        }
-
-        function handleSearchKeypress(e) {
-            if (e.key === 'Enter') executeSearch();
-        }
-
-        function executeSearch() {
-            const query = document.getElementById('searchInput').value.trim();
-            if (query) {
-                currentSearchQuery = query;
-                resetAndReload();
-            }
-        }
-
-        function clickTrending(topic) {
-            document.getElementById('searchInput').value = topic;
-            currentSearchQuery = topic;
-            resetAndReload();
-        }
-
-        function resetFeed() {
-            document.getElementById('searchInput').value = '';
-            currentSearchQuery = '';
-            resetAndReload();
-        }
-
-        function resetAndReload() {
-            totalItemsRendered = 0;
-            articlesStore = [];
-            document.getElementById('mainNewsFeed').innerHTML = '';
-            loadArticles();
-        }
-
-        function getWireframeMockArticles() {
-            return [
-                {
-                    title: "Satlyt, founded by a former Google and SpaceX product manager, raises $8M to run AI on satellites",
-                    description: "Satlyt wants to be the Android of orbital computing, offering open software that works on many companies' satellites, versus SpaceX's closed, all-in-one iPhone-style approach.",
-                    content: "Satlyt wants to be the Android of orbital computing, offering open software that works on many companies' satellites, versus SpaceX's closed, all-in-one iPhone-style approach.\n\nThe startup plans to deploy edge computing units directly on satellites in low Earth orbit to enable faster on-board inference for satellite imagery and remote sensing data.",
-                    url: "https://news.google.com",
-                    image: null
-                },
-                {
-                    title: "Google releases Gemini 4 Argon, called its most powerful model yet",
-                    description: "Google has released its latest Gemini model, marketing it as a workhorse for coding and cybersecurity work.",
-                    content: "Google has released its latest Gemini model, marketing it as a workhorse for coding and cybersecurity work. The new architecture improves long-context reasoning and reduces hallucination rates across complex tasks.",
-                    url: "https://news.google.com",
-                    image: null
-                },
-                {
-                    title: "The Pentagon taps Elon Musk and Palmer Luckey to help decide what the military should do next",
-                    description: "Defense Secretary Pete Hegseth launched a study on the future of warfare led by technology industry leaders.",
-                    content: "Defense Secretary Pete Hegseth launched a study on the future of warfare led by technology industry leaders. The panel will examine autonomous systems, algorithmic decision-making, and modern defense software architectures.",
-                    url: "https://news.google.com",
-                    image: null
-                },
-                {
-                    title: "Quantum computing breakthrough promises fault-tolerant qubit scaling",
-                    description: "Researchers demonstrate a novel error correction topological surface code operating above fault-tolerance thresholds.",
-                    content: "Researchers demonstrate a novel error correction topological surface code operating above fault-tolerance thresholds. This milestone paves the way for commercial scale fault-tolerant quantum hardware within the decade.",
-                    url: "https://news.google.com",
-                    image: null
-                },
-                {
-                    title: "Global climate summit reaches consensus on renewable grid integration funding",
-                    description: "Delegates approve key provisions for international grid interconnectivity and clean energy storage investment pools.",
-                    content: "Delegates approve key provisions for international grid interconnectivity and clean energy storage investment pools, unlocking billions in international climate action funding.",
-                    url: "https://news.google.com",
-                    image: null
-                },
-                {
-                    title: "Autonomous exploration rover discovers ancient geological signatures on Mars",
-                    description: "Spectral analysis reveals sediment compositions consistent with long-duration organic lake bed deposits.",
-                    content: "Spectral analysis reveals sediment compositions consistent with long-duration organic lake bed deposits. Robotic core samples are slated for future sample return missions.",
-                    url: "https://news.google.com",
-                    image: null
-                }
-            ];
-        }
-    </script>
+/* ---------- START ---------- */
+drawCategories();
+load();
+</script>
 </body>
 </html>
